@@ -32,10 +32,10 @@ jobs:
 
       - name: Install native Android layer
         run: |
-          mkdir -p android/app/src/main/java/com/example/auto_connect
+          mkdir -p android/app/src/main/kotlin/com/example/auto_connect
           cp tool/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
-          cp tool/android/MainActivity.kt android/app/src/main/java/com/example/auto_connect/MainActivity.kt
-          cp tool/android/BluetoothScanService.kt android/app/src/main/java/com/example/auto_connect/BluetoothScanService.kt
+          cp tool/android/MainActivity.kt android/app/src/main/kotlin/com/example/auto_connect/MainActivity.kt
+          cp tool/android/BluetoothScanService.kt android/app/src/main/kotlin/com/example/auto_connect/BluetoothScanService.kt
 
       - name: Analyze Dart
         run: flutter analyze lib
