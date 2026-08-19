@@ -407,7 +407,7 @@ class _HomePageState extends State<HomePage> {
   Widget _emptyState() => Padding(
         padding: const EdgeInsets.symmetric(vertical: 38),
         child: Column(children: [
-          const Icon(Icons.headphones_off_outlined, size: 52),
+          Icon(Icons.headphones, size: 52),
           const SizedBox(height: 10),
           Text(_tab == 'downloaded' ? 'Пока ничего не скачано' : _tab == 'search' ? 'Нет включённых наушников' : 'Наушники не найдены', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
         ]),
