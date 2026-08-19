@@ -45,7 +45,10 @@ class MainActivity : FlutterActivity() {
                     if (device == null) result.error("DEVICE", "Устройство не найдено", null)
                     else try {
                         if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != 0) result.error("PERMISSION", "Нет Bluetooth CONNECT", null)
-                        else { if (device.bondState != BluetoothDevice.BOND_BONDED) device.createBond() else device.connectGatt(this, false, BluetoothGattCallbackImpl()); result.success(true) }
+                        else {
+                            if (device.bondState != BluetoothDevice.BOND_BONDED) device.createBond()
+                            result.success(true)
+                        }
                     } catch (e: Exception) { result.error("CONNECT", e.message, null) }
                 }
                 else -> result.notImplemented()
@@ -64,9 +67,7 @@ class MainActivity : FlutterActivity() {
             if (Settings.canDrawOverlays(this)) {
                 val serviceIntent = Intent(this, BluetoothScanService::class.java)
                 if (Build.VERSION.SDK_INT >= 26) startForegroundService(serviceIntent) else startService(serviceIntent)
-            } else if (!Settings.canDrawOverlays(this)) {
-                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-            }
+            } else startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
             if (!adapter.isDiscovering) adapter.startDiscovery()
             result.success(true)
         } catch (e: SecurityException) { result.error("PERMISSION", "Нужно разрешение Bluetooth", null) }
@@ -79,5 +80,3 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() { stopScanner(); try { unregisterReceiver(receiver) } catch (_: Exception) {}; super.onDestroy() }
 }
-
-private class BluetoothGattCallbackImpl : android.bluetooth.BluetoothGattCallback()
