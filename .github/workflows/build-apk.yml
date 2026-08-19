@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-apk:
@@ -36,6 +36,23 @@ jobs:
           cp tool/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
           cp tool/android/MainActivity.kt android/app/src/main/kotlin/com/example/auto_connect/MainActivity.kt
           cp tool/android/BluetoothScanService.kt android/app/src/main/kotlin/com/example/auto_connect/BluetoothScanService.kt
+
+      - name: Fix Dart analyzer compatibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/main.dart')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('const Icon(Icons.headphones_off_outlined, size: 52)', 'Icon(Icons.headphones, size: 52)')
+          p.write_text(s, encoding='utf-8')
+          PY
+          if ! git diff --quiet -- lib/main.dart; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add lib/main.dart
+            git commit -m "Fix analyzer icon compatibility"
+            git push
+          fi
 
       - name: Analyze Dart
         run: flutter analyze lib
