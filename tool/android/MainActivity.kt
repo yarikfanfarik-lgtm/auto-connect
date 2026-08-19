@@ -42,12 +42,21 @@ class MainActivity : FlutterActivity() {
                 }
                 "getDeviceSettings" -> {
                     val prefs = getSharedPreferences("auto_connect_settings", MODE_PRIVATE)
-                    result.success(mapOf("downloaded" to prefs.getStringSet("downloaded", emptySet())?.toList(), "enabled" to prefs.getStringSet("enabled", emptySet())?.toList()))
+                    result.success(mapOf(
+                        "downloaded" to prefs.getStringSet("downloaded", emptySet())?.toList(),
+                        "enabled" to prefs.getStringSet("enabled", emptySet())?.toList(),
+                        "enabledPatterns" to prefs.getStringSet("enabled_patterns", emptySet())?.toList()
+                    ))
                 }
                 "saveDeviceSettings" -> {
                     val downloaded = (call.argument<List<*>>("downloaded") ?: emptyList<Any>()).map { it.toString() }.toSet()
                     val enabled = (call.argument<List<*>>("enabled") ?: emptyList<Any>()).map { it.toString() }.toSet()
-                    getSharedPreferences("auto_connect_settings", MODE_PRIVATE).edit().putStringSet("downloaded", downloaded).putStringSet("enabled", enabled).apply()
+                    val enabledPatterns = (call.argument<List<*>>("enabledPatterns") ?: emptyList<Any>()).map { it.toString().lowercase() }.toSet()
+                    getSharedPreferences("auto_connect_settings", MODE_PRIVATE).edit()
+                        .putStringSet("downloaded", downloaded)
+                        .putStringSet("enabled", enabled)
+                        .putStringSet("enabled_patterns", enabledPatterns)
+                        .apply()
                     result.success(true)
                 }
                 "connect" -> {
