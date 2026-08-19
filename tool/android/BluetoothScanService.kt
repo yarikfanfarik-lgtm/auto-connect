@@ -23,28 +23,13 @@ class BluetoothScanService : Service() {
         }
     }
 
-    private val catalog: Map<String, Pair<String, List<String>>> = mapOf(
-        "airpods_pro_2" to ("AirPods Pro 2" to listOf("airpods pro", "airpods")),
-        "galaxy_buds3_pro" to ("Galaxy Buds3 Pro" to listOf("galaxy buds3", "buds3 pro")),
-        "galaxy_watch7" to ("Galaxy Watch7" to listOf("galaxy watch7", "watch7")),
-        "xiaomi_buds5" to ("Xiaomi Buds 5" to listOf("xiaomi buds 5", "buds 5")),
-        "xiaomi_watch_s3" to ("Xiaomi Watch S3" to listOf("xiaomi watch s3", "watch s3")),
-        "oneplus_buds_pro3" to ("OnePlus Buds Pro 3" to listOf("oneplus buds pro 3", "buds pro 3")),
-        "oneplus_watch2" to ("OnePlus Watch 2" to listOf("oneplus watch 2", "watch 2")),
-        "nothing_ear" to ("Nothing Ear" to listOf("nothing ear")),
-        "huawei_freebuds_pro3" to ("HUAWEI FreeBuds Pro 3" to listOf("freebuds pro 3", "huawei freebuds")),
-        "sony_wh1000xm5" to ("Sony WH-1000XM5" to listOf("wh-1000xm5", "wh1000xm5")),
-        "jbl_tour_pro3" to ("JBL Tour Pro 3" to listOf("jbl tour pro 3", "tour pro 3")),
-        "one_more_sonoflow" to ("1MORE SonoFlow Pro" to listOf("1more sonoflow", "sonoflow")),
-    )
-
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
         val notification = Notification.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setContentTitle("Auto Connect")
-            .setContentText("Ищем выбранные устройства рядом")
+            .setContentText("Ищем выбранные наушники рядом")
             .setOngoing(true).build()
         if (Build.VERSION.SDK_INT >= 29) startForeground(7, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE) else startForeground(7, notification)
         registerReceiver(receiver, IntentFilter(BluetoothDevice.ACTION_FOUND))
@@ -52,50 +37,68 @@ class BluetoothScanService : Service() {
     }
 
     private fun startDiscovery() {
-        try { val adapter = BluetoothAdapter.getDefaultAdapter(); if (adapter != null && adapter.isEnabled && !adapter.isDiscovering) adapter.startDiscovery() } catch (_: SecurityException) {}
+        try {
+            val adapter = BluetoothAdapter.getDefaultAdapter()
+            if (adapter != null && adapter.isEnabled && !adapter.isDiscovering) adapter.startDiscovery()
+        } catch (_: SecurityException) {}
     }
 
     private fun maybeShow(device: BluetoothDevice) {
         val name = try { device.name ?: "" } catch (_: SecurityException) { "" }
-        if (name.isBlank() || !isEnabledModel(name) || !Settings.canDrawOverlays(this)) return
-        showPopup(device, displayName(name))
+        if (name.isBlank() || !isEnabledHeadphone(name) || !Settings.canDrawOverlays(this)) return
+        showPopup(device, name)
     }
 
-    private fun isEnabledModel(name: String): Boolean {
+    private fun isEnabledHeadphone(name: String): Boolean {
         val n = name.lowercase(Locale.getDefault())
-        val enabled = getSharedPreferences("auto_connect_settings", MODE_PRIVATE).getStringSet("enabled", emptySet()) ?: emptySet()
-        return enabled.any { id -> catalog[id]?.second?.any { n.contains(it) } == true }
-    }
-
-    private fun displayName(name: String): String {
-        val n = name.lowercase(Locale.getDefault())
-        return catalog.values.firstOrNull { (_, patterns) -> patterns.any { n.contains(it) } }?.first ?: name
+        val patterns = getSharedPreferences("auto_connect_settings", MODE_PRIVATE)
+            .getStringSet("enabled_patterns", emptySet()) ?: emptySet()
+        return patterns.any { n.contains(it.lowercase(Locale.getDefault())) }
     }
 
     private fun showPopup(device: BluetoothDevice, name: String) {
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(28, 22, 28, 24); background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = 42f } }
-        val art = TextView(this).apply { text = if (name.lowercase().contains("watch")) "⌚" else "🎧"; textSize = 92f; gravity = Gravity.CENTER; setPadding(0, 10, 0, 8) }
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(28, 22, 28, 24)
+            background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = 42f }
+        }
+        val art = TextView(this).apply { text = "🎧"; textSize = 92f; gravity = Gravity.CENTER; setPadding(0, 10, 0, 8) }
         val title = TextView(this).apply { text = name; textSize = 23f; setTextColor(Color.BLACK); setTypeface(typeface, android.graphics.Typeface.BOLD); gravity = Gravity.CENTER }
-        val subtitle = TextView(this).apply { text = "Устройство из вашего списка рядом"; textSize = 15f; setTextColor(Color.DKGRAY); gravity = Gravity.CENTER }
+        val subtitle = TextView(this).apply { text = "Выбранные наушники рядом"; textSize = 15f; setTextColor(Color.DKGRAY); gravity = Gravity.CENTER }
         val button = Button(this).apply {
             text = "Подключить"; textSize = 17f; isAllCaps = false
             setOnClickListener {
-                try { if (device.bondState != BluetoothDevice.BOND_BONDED) device.createBond() else Toast.makeText(this@BluetoothScanService, "Устройство уже сопряжено", Toast.LENGTH_SHORT).show() }
-                catch (_: Exception) { Toast.makeText(this@BluetoothScanService, "Не удалось подключить", Toast.LENGTH_SHORT).show() }
+                try {
+                    if (device.bondState != BluetoothDevice.BOND_BONDED) device.createBond()
+                    else Toast.makeText(this@BluetoothScanService, "Наушники уже сопряжены", Toast.LENGTH_SHORT).show()
+                } catch (_: Exception) { Toast.makeText(this@BluetoothScanService, "Не удалось подключить", Toast.LENGTH_SHORT).show() }
                 try { wm.removeView(root) } catch (_: Exception) {}
             }
         }
-        root.addView(art, LinearLayout.LayoutParams(-1, 190)); root.addView(title, LinearLayout.LayoutParams(-1, -2)); root.addView(subtitle, LinearLayout.LayoutParams(-1, -2))
+        root.addView(art, LinearLayout.LayoutParams(-1, 190))
+        root.addView(title, LinearLayout.LayoutParams(-1, -2))
+        root.addView(subtitle, LinearLayout.LayoutParams(-1, -2))
         val bp = LinearLayout.LayoutParams(-1, 56); bp.topMargin = 16; root.addView(button, bp)
         val type = if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
-        val lp = WindowManager.LayoutParams((resources.displayMetrics.widthPixels * .92).toInt(), WindowManager.LayoutParams.WRAP_CONTENT, type, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, android.graphics.PixelFormat.TRANSLUCENT).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = 34 }
-        try { wm.addView(root, lp); root.postDelayed({ try { wm.removeView(root) } catch (_: Exception) {} }, 15000) } catch (_: Exception) {}
+        val lp = WindowManager.LayoutParams(
+            (resources.displayMetrics.widthPixels * .92).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            android.graphics.PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = 34 }
+        try {
+            wm.addView(root, lp)
+            root.postDelayed({ try { wm.removeView(root) } catch (_: Exception) {} }, 15000)
+        } catch (_: Exception) {}
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= 26) getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(channelId, "Auto Connect", NotificationManager.IMPORTANCE_LOW))
+        if (Build.VERSION.SDK_INT >= 26) getSystemService(NotificationManager::class.java)
+            .createNotificationChannel(NotificationChannel(channelId, "Auto Connect", NotificationManager.IMPORTANCE_LOW))
     }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int { startDiscovery(); return START_STICKY }
     override fun onDestroy() { try { unregisterReceiver(receiver) } catch (_: Exception) {}; try { BluetoothAdapter.getDefaultAdapter()?.cancelDiscovery() } catch (_: Exception) {}; super.onDestroy() }
     override fun onBind(intent: Intent?) = null
