@@ -1,0 +1,52 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Build release APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android project
+        run: flutter create . --platforms=android --project-name auto_connect --org com.example
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Install native Android layer
+        run: |
+          mkdir -p android/app/src/main/java/com/example/auto_connect
+          cp tool/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          cp tool/android/MainActivity.kt android/app/src/main/java/com/example/auto_connect/MainActivity.kt
+          cp tool/android/BluetoothScanService.kt android/app/src/main/java/com/example/auto_connect/BluetoothScanService.kt
+
+      - name: Analyze Dart
+        run: flutter analyze lib
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoConnect-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
