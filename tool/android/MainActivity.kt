@@ -19,7 +19,7 @@ class MainActivity : FlutterActivity() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == BluetoothDevice.ACTION_FOUND) {
                 val d = if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
-                        else @Suppress("DEPRECATION") intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                else @Suppress("DEPRECATION") intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                 if (d != null) eventSink?.success(mapOf("name" to (d.name ?: "Unknown device"), "address" to d.address, "rssi" to intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, (-100).toShort()).toInt()))
             }
         }
@@ -35,9 +35,20 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "startScanner" -> startScanner(result)
                 "stopScanner" -> { stopScanner(); result.success(true) }
+                "overlayGranted" -> result.success(Settings.canDrawOverlays(this))
                 "requestOverlay" -> {
                     if (Settings.canDrawOverlays(this)) result.success(true)
                     else { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))); result.success(false) }
+                }
+                "getDeviceSettings" -> {
+                    val prefs = getSharedPreferences("auto_connect_settings", MODE_PRIVATE)
+                    result.success(mapOf("downloaded" to prefs.getStringSet("downloaded", emptySet())?.toList(), "enabled" to prefs.getStringSet("enabled", emptySet())?.toList()))
+                }
+                "saveDeviceSettings" -> {
+                    val downloaded = (call.argument<List<*>>("downloaded") ?: emptyList<Any>()).map { it.toString() }.toSet()
+                    val enabled = (call.argument<List<*>>("enabled") ?: emptyList<Any>()).map { it.toString() }.toSet()
+                    getSharedPreferences("auto_connect_settings", MODE_PRIVATE).edit().putStringSet("downloaded", downloaded).putStringSet("enabled", enabled).apply()
+                    result.success(true)
                 }
                 "connect" -> {
                     val address = call.argument<String>("address")
@@ -45,10 +56,7 @@ class MainActivity : FlutterActivity() {
                     if (device == null) result.error("DEVICE", "Устройство не найдено", null)
                     else try {
                         if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != 0) result.error("PERMISSION", "Нет Bluetooth CONNECT", null)
-                        else {
-                            if (device.bondState != BluetoothDevice.BOND_BONDED) device.createBond()
-                            result.success(true)
-                        }
+                        else { if (device.bondState != BluetoothDevice.BOND_BONDED) device.createBond(); result.success(true) }
                     } catch (e: Exception) { result.error("CONNECT", e.message, null) }
                 }
                 else -> result.notImplemented()
